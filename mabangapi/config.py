@@ -1,0 +1,12 @@
+# 默认仓库id
+STOCK_WAREHOUSE_ID = 180138
+# 默认仓位id
+STOCK_GRID_ID = 123218
+# 订单批量上传模板id
+ORDER_UPLOAD_TEMPLATE_ID_MAP = {
+    '5miles': 28526
+}
+# 订单下载模板ID
+ORDER_DOWNLOAD_TEMPLATE_ID_MAP = {
+    '5miles': 28529
+}
