@@ -1,5 +1,6 @@
 import os
 import setuptools
+from setuptools import find_packages
 
 
 def openf(fname):
@@ -13,6 +14,7 @@ setuptools.setup(
     author_email="toby.lee@foxmail.com",
     description="mabang api 工具包",
     long_description=openf("README.md").read(),
-    packages=[line.strip() for line in openf("requirements.txt") if line.strip()],
+    packages=find_packages(),
+    install_requires=[line.strip() for line in openf("requirements.txt") if line.strip()],
     python_requires=">=3.6",
 )
