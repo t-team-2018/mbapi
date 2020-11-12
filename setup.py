@@ -8,11 +8,11 @@ def openf(fname):
 
 
 setuptools.setup(
-    name="mabangapi",
+    name="mbapi",
     version="0.0.1",
     author="toby",
     author_email="toby.lee@foxmail.com",
-    description="mabang api 工具包",
+    description="mbapi 工具包",
     long_description=openf("README.md").read(),
     packages=find_packages(),
     install_requires=[line.strip() for line in openf("requirements.txt") if line.strip()],
