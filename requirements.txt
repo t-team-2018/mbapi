@@ -1,4 +1,4 @@
 requests>=2,<3
 lxml>=4,<5
-openpyxl>=3,<4
+openpyxl>=2,<3
 pandas>=1,<2
