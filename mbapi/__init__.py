@@ -158,7 +158,11 @@ class MBApi():
             ret_data = r.json()
         except json.JSONDecodeError as e:
             raise MBApiError('返回非json数据: %s', r.text)
+        # login.info(r.text)
         if not ret_data['success']:
+            if "登录信息已超时" in ret_data["message"]:
+                self.login()
+                raise MBApiError("登录信息已超时，已经重新登录，请重试")
             raise MBApiError('请求mb接口出错, 返回数据为: %s', ret_data)
         if ret_data.get("errorMessage"):
             raise MBApiError("调用mb接口成功，但出现错误: %s" % ret_data["errorMessage"])
