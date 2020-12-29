@@ -10,6 +10,7 @@ from datetime import datetime, timedelta
 from types import MethodType
 from collections import namedtuple, deque
 
+from retry import retry
 import requests
 import pandas as pd
 from lxml import html
@@ -63,6 +64,7 @@ API_MAP = {
     'votobo_api': f'{VOTOBO_BASE_URL}/api/index.php',
     }
 
+
 ORDER_OP_TYPE_MAP = {
     '合并订单': '合并订单',
     }
@@ -101,6 +103,11 @@ class MBApiError(Exception):
     pass
 
 
+class MBApiRequestError(MBApiError):
+    """请求失败"""
+    pass
+
+
 class ProductNoExistError(MBApiError):
     pass
 
@@ -114,11 +121,17 @@ class OrderNotExistError(MBApiError):
 
 
 class LoginError(MBApiError):
+    """登录失败"""
     pass
 
 
 class NotMergedOrderError(MBApiError):
     '''非合并订单错误'''
+    pass
+
+
+class MBApiBizError(MBApiError):
+    """业务错误"""
     pass
 
 
@@ -144,6 +157,7 @@ class MBApi():
     # def __del__(self):
     #     self.to_over_heartbeat = True
 
+    @retry((MBApiRequestError, LoginError), 3, 1)
     def request(self, url, method, **kw):
         logger.info(f'url={url}, method={method}, kw={kw}')
         headers = {'X-Requested-With': 'XMLHttpRequest'}
@@ -151,21 +165,21 @@ class MBApi():
         try:
             r = getattr(self.r_session, method)(url, headers=headers, **kw)
         except requests.exceptions.RequestException as e:
-            raise MBApiError('mb无法访问', e)
+            raise MBApiRequestError('mb无法访问', e)
+        logger.info("mb返回: %s", r.text)
         if r.status_code != 200:
-            raise MBApiError('请求mb接口出错, 返回状态码为: %s', r.status_code)
+            raise MBApiRequestError('请求mb接口出错, 返回状态码为: %s', r.status_code)
         try:
             ret_data = r.json()
         except json.JSONDecodeError as e:
-            raise MBApiError('返回非json数据: %s', r.text)
-        # login.info(r.text)
+            raise MBApiRequestError('返回非json数据: %s', r.text)
         if not ret_data['success']:
             if "登录信息已超时" in ret_data["message"]:
                 self.login()
-                raise MBApiError("登录信息已超时，已经重新登录，请重试")
-            raise MBApiError('请求mb接口出错, 返回数据为: %s', ret_data)
+                raise MBApiRequestError("登录信息已超时，已经重新登录，请重试")
+            raise MBApiBizError('请求mb接口出错, 返回数据为: %s', ret_data)
         if ret_data.get("errorMessage"):
-            raise MBApiError("调用mb接口成功，但出现错误: %s" % ret_data["errorMessage"])
+            raise MBApiBizError("调用mb接口成功，但出现错误: %s" % ret_data["errorMessage"])
         return ret_data
 
     @property
