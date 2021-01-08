@@ -240,7 +240,7 @@ class MBApi():
             'lang': 'cn',
             }
         resp = self._r_session.get(AAMZ_API, params=aamz_params)
-        logger.info('登录AAMZ返回信息: %s', resp.text)
+        logger.info('登录AAMZ返回信息: %s', resp.text[:150])
 
         votobo_params = {
             "mod": "vmain.mbLogin",
@@ -248,7 +248,7 @@ class MBApi():
             "private_mabang": "",
         }
         resp = self._r_session.get(API_MAP['votobo_login'], params=votobo_params)
-        logger.info('登录votobo返回信息: %s', resp.text)
+        logger.info('登录votobo返回信息: %s', resp.json())
         self.check_login()
 
     @staticmethod
@@ -283,7 +283,7 @@ class MBApi():
             if error:
                 raise ProductNoExistError('key:[%s] content:[%s] 查寻不到结果!' % (search_key, search_content))
             else:
-                return Product('None')
+                return Product(None)
         elif len(skus) > 1:
             main_sku = self.get_main_sku(skus[0])
             # 如果匹配出来的结果不是属于同种商品
@@ -291,7 +291,7 @@ class MBApi():
                 if error:
                     raise ProductMultiError('key:[%s] content:[%s] 查寻得到多种商品!' % (search_key, search_content))
                 else:
-                    return Product('None')
+                    return Product(None)
         stock_data = stock_data_list[0]
         product = Product(stock_data['stockSku'])
         product.cost = float(stock_data['stockWarehouseData'][0]['stockCost'])
