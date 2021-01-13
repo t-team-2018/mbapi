@@ -21,6 +21,8 @@ from .constant import COUNTRY_CODE_MAP, CURRENCY_ID_MAP, EXPORT_FIELD_MAP
 from .config import (
     STOCK_WAREHOUSE_ID, STOCK_GRID_ID, ORDER_UPLOAD_TEMPLATE_ID_MAP, ORDER_DOWNLOAD_TEMPLATE_ID_MAP
 )
+from .order import ProductSearchOperate
+
 
 logger = logging.getLogger(__name__)
 
@@ -256,7 +258,7 @@ class MBApi():
         '''获取主sku, 即子sku前缀. 如: TT0183F -> TT0183'''
         return re.match(r'^\D+\d+', sku).group()
 
-    def get_product_info(self, search_key, search_content, error=True):
+    def get_product_info(self, search_key, search_content, operate, error=True):
         '''获取商品数据
         :param key: 查询方式:
                 1. 库存sku编号: Stock_stockSku
@@ -273,7 +275,7 @@ class MBApi():
             'searchKey': search_key,
             'search-content': search_key_map[search_key],
             'searchValue': search_content,
-            'operate': 'likeStart',
+            'operate': operate,
             'status': 3,
             }
         r_data = self.request(api, 'post', data=data)
@@ -302,11 +304,11 @@ class MBApi():
         product.has_battery = (stock_data['hasBattery'] == SpecialAttr.HAS_BATTERY)
         return product
 
-    def get_product_info_from_stock_sku(self, sku, error=True):
-        return self.get_product_info('Stock_stockSku', sku, error)
+    def get_product_info_from_stock_sku(self, sku, operate=ProductSearchOperate.LIKE_START, error=True):
+        return self.get_product_info('Stock_stockSku', sku, operate, error)
 
-    def get_product_info_from_virtual_sku(self, sku, error=True):
-        return self.get_product_info('StockVirtualSku_virtualSku', sku, error)
+    def get_product_info_from_virtual_sku(self, sku, operate=ProductSearchOperate.LIKE_START, error=True):
+        return self.get_product_info('StockVirtualSku_virtualSku', sku, operate, error)
 
     def get_shipping_fee(self, weight, country='US'):
         '''获取邮费, 只支持e邮宝'''
