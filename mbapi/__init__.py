@@ -10,9 +10,11 @@ from datetime import datetime, timedelta
 from types import MethodType
 from collections import namedtuple, deque
 
-from retry import retry
 import requests
 import pandas as pd
+from retry import retry
+from requests.adapters import HTTPAdapter
+from urllib3.util.retry import Retry
 from lxml import html
 from openpyxl import Workbook, load_workbook
 from openpyxl.writer.excel import save_virtual_workbook
@@ -139,7 +141,7 @@ class MBApiBizError(MBApiError):
 
 class MBApi():
     def __init__(self, user, passwd, business_number, user_id):
-        self._r_session = requests.Session()
+        self._r_session = self._make_request_session()
         self.user = user
         self.passwd = passwd
         self.business_number = business_number
@@ -149,6 +151,14 @@ class MBApi():
         # self.is_start_heartbeat = False
         # self.to_over_heartbeat = False
         # self.heartbeat()
+
+    def _make_request_session(self):
+        r_session = requests.Session()
+        retries = Retry(total=5, backoff_factor=0.5, status_forcelist=(502, 504))
+        http_adapter = HTTPAdapter(pool_connections=20, pool_maxsize=50, max_retries=retries)
+        r_session.mount("http://", http_adapter)
+        r_session.mount("https://", http_adapter)
+        return r_session
 
     def __getstate__(self):
         return (self.user, self.passwd)
