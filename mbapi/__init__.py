@@ -728,7 +728,8 @@ class MBApi():
                 'E邮宝': 'china-ems',
                 '燕文': 'yanwen',
                 '递四方': '4px',
-                }
+                '联邮通': '4px',
+            }
             for k, v in name_map.items():
                 if k in name:
                     return v
