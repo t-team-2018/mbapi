@@ -5,35 +5,43 @@ import logging
 import json
 import time
 import uuid
-from threading import Thread
-from datetime import datetime, timedelta
 from types import MethodType
 from collections import namedtuple, deque
 
 import requests
 import pandas as pd
 from retry import retry
-from requests.adapters import HTTPAdapter
-from urllib3.util.retry import Retry
 from lxml import html
 from openpyxl import Workbook, load_workbook
 from openpyxl.writer.excel import save_virtual_workbook
 
-from .constant import COUNTRY_CODE_MAP, CURRENCY_ID_MAP, EXPORT_FIELD_MAP
+from .product import ProductApi
+from .constant import (
+    COUNTRY_CODE_MAP,
+    CURRENCY_ID_MAP,
+    EXPORT_FIELD_MAP,
+    MB_BASE_URL,
+    AAMZ_BASE_URL,
+    VOTOBO_BASE_URL,
+    AAMZ_API,
+)
+from .exceptions import (
+    MBApiError,
+    MBApiRequestError,
+    ProductNoExistError,
+    ProductMultiError,
+    OrderNotExistError,
+    LoginError,
+    NotMergedOrderError,
+    MBApiBizError,
+)
 from .config import (
     STOCK_WAREHOUSE_ID, STOCK_GRID_ID, ORDER_UPLOAD_TEMPLATE_ID_MAP, ORDER_DOWNLOAD_TEMPLATE_ID_MAP
 )
-from .order import ProductSearchOperate
+from .product import ProductSearchOperate, Product
 
 
 logger = logging.getLogger(__name__)
-
-MB_BASE_URL = 'https://www.mabangerp.com'
-AAMZ_BASE_URL = 'https://aamz.mabangerp.com'
-VOTOBO_BASE_URL = 'https://member.votobo.com'
-AAMZ_API = 'https://aamz.mabangerp.com/index.php'
-LOGIN_EXPIRE = timedelta(minutes=10)
-
 
 API_MAP = {
     'login': '%s/index.php?mod=main.doLogin' % MB_BASE_URL,
@@ -82,93 +90,7 @@ PLATFORM_ID_MAP = {
 ShippingInfo = namedtuple('shipping_info', 'order_id shipping_service tracking_no')
 
 
-class SpecialAttr:
-    """特殊属性"""
-    HAS_BATTERY = "1"
-
-
-class Product():
-    def __init__(self, sku):
-        self.sku = sku
-        self.cost = 0
-        self.weight = 0
-        self.stock = 0
-        self.unsent = 0
-        self.purchasing = 0
-        self.img_url = ''
-        self.chinese = ''
-        self.has_battery = False
-
-    def __repr__(self):
-        return '<sku: %s, cost: %s, weight: %s>' % (self.sku, self.cost, self.weight)
-
-
-class MBApiError(Exception):
-    pass
-
-
-class MBApiRequestError(MBApiError):
-    """请求失败"""
-    pass
-
-
-class ProductNoExistError(MBApiError):
-    pass
-
-
-class ProductMultiError(MBApiError):
-    pass
-
-
-class OrderNotExistError(MBApiError):
-    pass
-
-
-class LoginError(MBApiError):
-    """登录失败"""
-    pass
-
-
-class NotMergedOrderError(MBApiError):
-    '''非合并订单错误'''
-    pass
-
-
-class MBApiBizError(MBApiError):
-    """业务错误"""
-    pass
-
-
-class MBApi():
-    def __init__(self, user, passwd, business_number, user_id):
-        self._r_session = self._make_request_session()
-        self.user = user
-        self.passwd = passwd
-        self.business_number = business_number
-        self.user_id = user_id
-        self._datetime = None
-        self.login_error_times = 0
-        # self.is_start_heartbeat = False
-        # self.to_over_heartbeat = False
-        # self.heartbeat()
-
-    def _make_request_session(self):
-        r_session = requests.Session()
-        retries = Retry(total=5, backoff_factor=0.5, status_forcelist=(502, 504))
-        http_adapter = HTTPAdapter(pool_connections=20, pool_maxsize=50, max_retries=retries)
-        r_session.mount("http://", http_adapter)
-        r_session.mount("https://", http_adapter)
-        return r_session
-
-    def __getstate__(self):
-        return (self.user, self.passwd)
-
-    def __setstate__(self, args):
-        self.__init__(*args)
-
-    # def __del__(self):
-    #     self.to_over_heartbeat = True
-
+class MBApi(ProductApi):
     @retry((MBApiRequestError, LoginError), 3, 1)
     def request(self, url, method, **kw):
         logger.info(f'url={url}, method={method}, kw={kw}')
@@ -193,28 +115,6 @@ class MBApi():
         if ret_data.get("errorMessage"):
             raise MBApiBizError("调用mb接口成功，但出现错误: %s" % ret_data["errorMessage"])
         return ret_data
-
-    @property
-    def r_session(self):
-        if self._datetime is None or datetime.now() - self._datetime > LOGIN_EXPIRE:
-            self.check_login()
-        self._datetime = datetime.now()
-        return self._r_session
-
-    def heartbeat(self):
-        '''维持cookie的心跳函数'''
-        def thread():
-            while True:
-                try:
-                    self.check_login()
-                except Exception as e:
-                    logger.error('mb心跳程序出错: %s' % e)
-                if self.to_over_heartbeat:
-                    break
-                time.sleep(60*10)
-        if not self.is_start_heartbeat:
-            Thread(target=thread).start()
-        self.is_start_heartbeat = True
 
     def check_login(self):
         aamz_text = self._r_session.get(AAMZ_API).text
@@ -262,63 +162,6 @@ class MBApi():
         resp = self._r_session.get(API_MAP['votobo_login'], params=votobo_params)
         logger.info('登录votobo返回信息: %s', resp.json())
         self.check_login()
-
-    @staticmethod
-    def get_main_sku(sku):
-        '''获取主sku, 即子sku前缀. 如: TT0183F -> TT0183'''
-        return re.match(r'^\D+\d+', sku).group()
-
-    def get_product_info(self, search_key, search_content, operate, error=True):
-        '''获取商品数据
-        :param key: 查询方式:
-                1. 库存sku编号: Stock_stockSku
-                2. 虚拟sku编号: StockVirtualSku_virtualSku
-        :param content: 查询内容，目前用于sku搜索
-        :return: 返回产品信息, None, True
-        '''
-        api = API_MAP['get_product_info']
-        search_key_map = {
-                'Stock_stockSku': '库存sku编号',
-                'StockVirtualSku_virtualSku': '虚拟sku编号'
-                }
-        data = {
-            'searchKey': search_key,
-            'search-content': search_key_map[search_key],
-            'searchValue': search_content,
-            'operate': operate,
-            'status': 3,
-            }
-        r_data = self.request(api, 'post', data=data)
-        stock_data_list = r_data.get('stockData', [])
-        skus = [prod['stockSku'] for prod in stock_data_list]
-        if len(skus) == 0:
-            if error:
-                raise ProductNoExistError('key:[%s] content:[%s] 查寻不到结果!' % (search_key, search_content))
-            else:
-                return Product(None)
-        elif len(skus) > 1:
-            main_sku = self.get_main_sku(skus[0])
-            # 如果匹配出来的结果不是属于同种商品
-            if not all((sku.startswith(main_sku) for sku in skus[1:])):
-                if error:
-                    raise ProductMultiError('key:[%s] content:[%s] 查寻得到多种商品!' % (search_key, search_content))
-                else:
-                    return Product(None)
-        stock_data = stock_data_list[0]
-        product = Product(stock_data['stockSku'])
-        product.cost = float(stock_data['stockWarehouseData'][0]['stockCost'])
-        product.weight = float(stock_data['weight'])
-        product.stock = int(stock_data['stockQuantity'])
-        product.img_url = stock_data['stockPicture']
-        product.chinese = stock_data['declareName']
-        product.has_battery = (stock_data['hasBattery'] == SpecialAttr.HAS_BATTERY)
-        return product
-
-    def get_product_info_from_stock_sku(self, sku, operate=ProductSearchOperate.LIKE_START, error=True):
-        return self.get_product_info('Stock_stockSku', sku, operate, error)
-
-    def get_product_info_from_virtual_sku(self, sku, operate=ProductSearchOperate.LIKE_START, error=True):
-        return self.get_product_info('StockVirtualSku_virtualSku', sku, operate, error)
 
     def get_shipping_fee(self, weight, country='US'):
         '''获取邮费, 只支持e邮宝'''
@@ -727,6 +570,7 @@ class MBApi():
                 '顺丰': 'sfb2c',
                 'E邮宝': 'china-ems',
                 '燕文': 'yanwen',
+                '燕邮宝': 'yanwen',
                 '递四方': '4px',
                 '联邮通': '4px',
             }

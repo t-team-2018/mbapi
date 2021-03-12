@@ -1,4 +1,16 @@
 # -*- coding: utf-8 -*-
+MB_BASE_URL = 'https://www.mabangerp.com'
+AAMZ_BASE_URL = 'https://aamz.mabangerp.com'
+VOTOBO_BASE_URL = 'https://member.votobo.com'
+MEMBER_BASE_URL = 'https://member.mabangerp.com'
+
+
+MB_API = f'{MB_BASE_URL}/index.php'
+AAMZ_API = f'{AAMZ_BASE_URL}/index.php'
+VOTOBO_API = f'{VOTOBO_BASE_URL}/api/index.php'
+MEMBER_API = f'{MEMBER_BASE_URL}/api/index.php'
+
+
 COUNTRY_CODE_MAP = {
     'AE': '阿联酋[United Arab Emirates]',
     'AF': '阿富汗[Afghanistan]',
