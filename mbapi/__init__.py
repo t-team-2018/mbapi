@@ -25,6 +25,7 @@ from .constant import (
     AAMZ_BASE_URL,
     VOTOBO_BASE_URL,
     AAMZ_API,
+    BIAOJU_API,
 )
 from .exceptions import (
     MBApiError,
@@ -40,6 +41,7 @@ from .config import (
     STOCK_WAREHOUSE_ID, STOCK_GRID_ID, ORDER_UPLOAD_TEMPLATE_ID_MAP, ORDER_DOWNLOAD_TEMPLATE_ID_MAP
 )
 from .product import ProductSearchOperate, Product
+from .biaoju import BiaoJuApi
 
 
 logger = logging.getLogger(__name__)
@@ -48,6 +50,7 @@ API_MAP = {
     'login': '%s/index.php?mod=main.doLogin' % MB_BASE_URL,
     'get_product_info': '%s/index.php?mod=stock.getStockList' % AAMZ_BASE_URL,
     'upload_virtual_sku': '%s/index.php?mod=uploadfile.doUploadFileForStock' % AAMZ_BASE_URL,
+    # 订单模块里的运费测算接口
     'get_shipping_fee': '%s/index.php?mod=order.freightcalculated' % MB_BASE_URL,
     'index': '%s/' % MB_BASE_URL,
     'upload_image': 'https://publish.mabangerp.com/index.php?m=image&a=doUpload',
@@ -91,7 +94,7 @@ PLATFORM_ID_MAP = {
 ShippingInfo = namedtuple('shipping_info', 'order_id shipping_service tracking_no')
 
 
-class MBApi(ProductApi):
+class MBApi(ProductApi, BiaoJuApi):
     def request(self, method, url, login_for_error=True, **kw):
         logger.info(f'url={url}, method={method}, kw={kw}')
         new_kw = copy.deepcopy(kw)
@@ -163,24 +166,29 @@ class MBApi(ProductApi):
         }
         resp = self._r_session.get(API_MAP['votobo_login'], params=votobo_params)
         logger.info('登录votobo返回信息: %s', resp.json())
+
+        # 登陆镖局
+        biaoju_login_api = f"{BIAOJU_API}?m=main&a=erpLogin&noHeader=1&plus=eyJob3N0IjoiaHR0cHM6XC9cL3d3dy5tYWJhbmdlcnAuY29tXC9pbmRleC5waHAifQ==&loginMod=customshippingfee.list&i=8932&language=cn&lang=cn"
+        resp = self._r_session.get(biaoju_login_api)
+        logger.info("登陆镖局返回信息: %s", resp.text)
         self._check_login()
 
-    def get_shipping_fee(self, weight, country='US'):
-        '''获取邮费, 只支持e邮宝'''
-        api = API_MAP['get_shipping_fee']
-        data = {
-            'countryCode': 'US',
-            'orderweiht': weight
-            }
-        r = self.r_session.post(api, data=data)
-        html_str = r.json()['message']
-        tree = html.fromstring(html_str)
-        shipping_infos = tree.xpath('//body//text()')
-        for info in shipping_infos:
-            if '线下E邮宝' in info:
-                return float(info.rsplit(' ', 1)[-1])
-        else:
-            raise MBApiError('获取物流价格失败')
+    # def get_shipping_fee(self, weight, country='US'):
+    #     '''获取邮费, 只支持e邮宝'''
+    #     api = API_MAP['get_shipping_fee']
+    #     data = {
+    #         'countryCode': 'US',
+    #         'orderweiht': weight
+    #         }
+    #     r = self.r_session.post(api, data=data)
+    #     html_str = r.json()['message']
+    #     tree = html.fromstring(html_str)
+    #     shipping_infos = tree.xpath('//body//text()')
+    #     for info in shipping_infos:
+    #         if '线下E邮宝' in info:
+    #             return float(info.rsplit(' ', 1)[-1])
+    #     else:
+    #         raise MBApiError('获取物流价格失败')
 
     def upload_virtual_sku_from_file(self, xlsx_name):
         '''上传虚拟SKU'''

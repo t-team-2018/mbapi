@@ -3,12 +3,14 @@ MB_BASE_URL = 'https://www.mabangerp.com'
 AAMZ_BASE_URL = 'https://aamz.mabangerp.com'
 VOTOBO_BASE_URL = 'https://member.votobo.com'
 MEMBER_BASE_URL = 'https://member.mabangerp.com'
+BIAOJU_BASE_URL = "https://www.i8956.com"
 
 
 MB_API = f'{MB_BASE_URL}/index.php'
 AAMZ_API = f'{AAMZ_BASE_URL}/index.php'
 VOTOBO_API = f'{VOTOBO_BASE_URL}/api/index.php'
 MEMBER_API = f'{MEMBER_BASE_URL}/api/index.php'
+BIAOJU_API = f'{BIAOJU_BASE_URL}/index.php'
 
 
 COUNTRY_CODE_MAP = {

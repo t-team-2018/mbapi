@@ -34,3 +34,10 @@ class MBApiBizError(MBApiError):
     pass
 
 
+# 镖局接口异常
+class BiaoJuApiError(MBApiError):
+    pass
+
+
+class CalculateShippingFeeError(BiaoJuApiError):
+    pass
