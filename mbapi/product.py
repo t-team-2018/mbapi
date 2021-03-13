@@ -123,7 +123,7 @@ class ProductApi(MBApiBase):
             'operate': operate,
             'status': 3,
         }
-        r_data = self.request(api, 'post', data=data, params=params)
+        r_data = self.request('post', api, data=data, params=params)
         stock_data_list = r_data.get('stockData', [])
         return [Product.from_api(stock_data) for stock_data in stock_data_list]
 
@@ -145,7 +145,7 @@ class ProductApi(MBApiBase):
             'searchKeywords': search_content,
             'operate': operate,
         }
-        r_data = self.request(api, 'post', data=data, params=params)
+        r_data = self.request('post', api, data=data, params=params)
         tree = html.fromstring(r_data["message"])
         ret_list = []
         for p_tree in tree.xpath("//tr/td[3]/p/a/../../.."):

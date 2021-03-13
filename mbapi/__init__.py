@@ -92,12 +92,12 @@ ShippingInfo = namedtuple('shipping_info', 'order_id shipping_service tracking_n
 
 class MBApi(ProductApi):
     @retry((MBApiRequestError, LoginError), 3, 1)
-    def request(self, url, method, **kw):
+    def request(self, method, url, **kw):
         logger.info(f'url={url}, method={method}, kw={kw}')
         headers = {'X-Requested-With': 'XMLHttpRequest'}
         headers.update(kw.pop('headers', {}))
         try:
-            r = getattr(self.r_session, method)(url, headers=headers, **kw)
+            r = self.r_session.request(method, url, headers=headers, **kw)
         except requests.exceptions.RequestException as e:
             raise MBApiRequestError('mb无法访问', e)
         logger.info("mb返回: %s", r.text)
@@ -188,7 +188,7 @@ class MBApi(ProductApi):
             "UpLoadFileType": "addVirtualSKU",
             "stockVirtualType": 1
         }
-        ret_data = self.request(api, "post", data=data, files=files)
+        ret_data = self.request("post", api, data=data, files=files)
         logger.info('上传sku: %s, 返回数据:%s' % (xlsx_name, ret_data))
         return ret_data
 
@@ -212,7 +212,7 @@ class MBApi(ProductApi):
             "UpLoadFileType": "addVirtualSKU",
             "stockVirtualType": 1
         }
-        ret_data = self.request(api, "post", data=data, files=files)
+        ret_data = self.request("post", api, data=data, files=files)
         logger.info('上传sku: %s, 返回数据:%s' % (mb_sku_map_list, ret_data))
         return ret_data
 
@@ -318,7 +318,7 @@ class MBApi(ProductApi):
             # 该参数可不传，该参数未马帮内部订单id
             # 'orderId': ''
             }
-        ret_data = self.request(api, 'post', data=data)
+        ret_data = self.request('post', api, data=data)
         pos_html = ret_data['posHtml']
         raw_json_data = re.search(r'(?<=>){.*}(?=<)', pos_html).group()
         return json.loads(raw_json_data)
@@ -371,7 +371,7 @@ class MBApi(ProductApi):
             'page': '',
             'rowsPerPage': ''
             }
-        ret_data = self.request(api, 'post', data=data)
+        ret_data = self.request('post', api, data=data)
         html_text = ret_data['message']
         tree = html.fromstring(html_text)
         return [
@@ -391,7 +391,7 @@ class MBApi(ProductApi):
             'a': 'orderalllist',
             'post_tableBase': 1,
             }
-        ret_data = self.request(api, 'post', data=data)
+        ret_data = self.request('post', api, data=data)
         order_list = ret_data['orderDataList']
         if not order_list:
             raise MBApiError(f'{order_id} 查无该订单')
@@ -415,7 +415,7 @@ class MBApi(ProductApi):
             'platformTracknumberSearchInput': 'platformOrderId',
             'platformTracknumberSearchtextarea': '\n'.join(order_ids)
             }
-        return self.request(api, 'post', data=data)
+        return self.request('post', api, data=data)
 
     def get_order_shipping_info_by_ids(self, order_ids: list) -> list:
         '''获取物流信息
@@ -493,7 +493,7 @@ class MBApi(ProductApi):
             ('remarkflag', 1),
             ('changeprint', ''),
         ]
-        return self.request(api, 'post', data=data)
+        return self.request('post', dapi, ata=data)
 
     def _upload_order_xlsx(self, fp, template_id, shop_id):
         '''上传订单文件
@@ -546,7 +546,7 @@ class MBApi(ProductApi):
             ('mergeShow', 1),
             ('hbddgyxx', 2),
             ])
-        url = self.request(api, 'post', data=data)['gourl']
+        url = self.request('post', api, data=data)['gourl']
         content = self.r_session.get(url).content
         df = pd.read_excel(io.BytesIO(content), na_filter=False)
         ret_data = df.values.tolist()
@@ -714,7 +714,7 @@ class MBApi(ProductApi):
             'type': 1,
             'tableBase': 2,
             }
-        ret_data = self.request(api, 'post', data=data)
+        ret_data = self.request('post', api, data=data)
         order_html = ret_data['order_html']
         tree = html.fromstring(order_html)
         ret_data = []
@@ -759,7 +759,7 @@ class MBApi(ProductApi):
     def start_ship_match_script(self):
         '''立即执行物流匹配脚本'''
         api = API_MAP['start_ship_match_script']
-        return self.request(api, 'post', data={'type': 2})
+        return self.request('post', api, data={'type': 2})
 
     def get_dev_product_detail(self, dev_product_id: int):
         """获取待开发商品的详情
@@ -770,4 +770,4 @@ class MBApi(ProductApi):
             "mod": "productApi.getProductDetail",
             "productId": dev_product_id,
         }
-        return self.request(api, 'get', params=params)
+        return self.request('get', api, params=params)
