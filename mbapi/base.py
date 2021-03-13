@@ -30,11 +30,19 @@ class MBApiBase():
     @property
     def r_session(self):
         if self._datetime is None or datetime.now() - self._datetime > LOGIN_EXPIRE:
-            self.check_login()
+            self._check_login()
         self._datetime = datetime.now()
         return self._r_session
 
-    def check_login(self):
+    def _check_login_invalid(self, message):
+        """
+        "登录信息已超时"为马帮接口登录失效返回信息
+        "请重新登录"为镖局接口登录失效返回信息
+        """
+        words = ["登录信息已超时", "请重新登录"]
+        return any(word in message for word in words)
+
+    def _check_login(self):
         raise NotImplementedError
 
     def request(self, url, method, **kw):

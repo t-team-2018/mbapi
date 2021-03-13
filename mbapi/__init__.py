@@ -5,12 +5,13 @@ import logging
 import json
 import time
 import uuid
+import copy
 from types import MethodType
 from collections import namedtuple, deque
 
 import requests
 import pandas as pd
-from retry import retry
+# from retry import retry
 from lxml import html
 from openpyxl import Workbook, load_workbook
 from openpyxl.writer.excel import save_virtual_workbook
@@ -91,13 +92,13 @@ ShippingInfo = namedtuple('shipping_info', 'order_id shipping_service tracking_n
 
 
 class MBApi(ProductApi):
-    @retry((MBApiRequestError, LoginError), 3, 1)
-    def request(self, method, url, **kw):
+    def request(self, method, url, login_for_error=True, **kw):
         logger.info(f'url={url}, method={method}, kw={kw}')
+        new_kw = copy.deepcopy(kw)
         headers = {'X-Requested-With': 'XMLHttpRequest'}
-        headers.update(kw.pop('headers', {}))
+        headers.update(new_kw.pop('headers', {}))
         try:
-            r = self.r_session.request(method, url, headers=headers, **kw)
+            r = self.r_session.request(method, url, headers=headers, **new_kw)
         except requests.exceptions.RequestException as e:
             raise MBApiRequestError('mb无法访问', e)
         logger.info("mb返回: %s", r.text)
@@ -108,15 +109,16 @@ class MBApi(ProductApi):
         except json.JSONDecodeError as e:
             raise MBApiRequestError('返回非json数据: %s', r.text)
         if not ret_data['success']:
-            if "登录信息已超时" in ret_data["message"]:
+            if login_for_error and self._check_login_invalid(ret_data["message"]):
+                logger.info(f"登录信息超时，重新登录")
                 self.login()
-                raise MBApiRequestError("登录信息已超时，已经重新登录，请重试")
+                return self.request(method, url, login_for_error=False, **kw)
             raise MBApiBizError('请求mb接口出错, 返回数据为: %s', ret_data)
         if ret_data.get("errorMessage"):
             raise MBApiBizError("调用mb接口成功，但出现错误: %s" % ret_data["errorMessage"])
         return ret_data
 
-    def check_login(self):
+    def _check_login(self):
         aamz_text = self._r_session.get(AAMZ_API).text
         mb_text = self._r_session.get(API_MAP['index']).text
         votobo_json = self._r_session.get(API_MAP['votobo_check_login']).json()
@@ -161,7 +163,7 @@ class MBApi(ProductApi):
         }
         resp = self._r_session.get(API_MAP['votobo_login'], params=votobo_params)
         logger.info('登录votobo返回信息: %s', resp.json())
-        self.check_login()
+        self._check_login()
 
     def get_shipping_fee(self, weight, country='US'):
         '''获取邮费, 只支持e邮宝'''
