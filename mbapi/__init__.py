@@ -503,7 +503,7 @@ class MBApi(ProductApi, BiaoJuApi):
             ('remarkflag', 1),
             ('changeprint', ''),
         ]
-        return self.request('post', dapi, ata=data)
+        return self.request('post', api, data=data)
 
     def _upload_order_xlsx(self, fp, template_id, shop_id):
         '''上传订单文件
