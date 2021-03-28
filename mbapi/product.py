@@ -112,8 +112,8 @@ class Product():
     stock: int = 0
     unsent: int = 0
     purchasing: int = 0
-    self.img_url: str = ""
-    self.chinese: str = ""
+    img_url: str = ""
+    chinese: str = ""
     is_battery: bool = False
     is_tort: bool = False
     is_magnetic: bool = False
