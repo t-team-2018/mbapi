@@ -121,7 +121,7 @@ class Product():
     is_liquid_cosmetic: bool = False
     is_liquid_no_cosmetic: bool = False
     is_powder: bool = False
-    _ori_data: field(default_factory=dict)
+    _ori_data: dict = field(default_factory=dict)
 
     @classmethod
     def from_api(cls, stock_data):
