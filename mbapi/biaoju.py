@@ -39,7 +39,3 @@ class BiaoJuApi(MBApiBase):
                 f"物流费用规则ID: {shipping_fee_id}, 重量: {weight}, 国家: {country}"
             )
             raise CalculateShippingFeeError(log)
-
-    def get_config_shipping_fee(self, weight, is_special, country="US"):
-        shipping_fee_id = SPECIAL_SHIPPING_FEE_ID if is_special else COMMON_SHIPPING_FEE_ID
-        return self.get_shipping_fee(shipping_fee_id, weight, country)

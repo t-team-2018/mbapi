@@ -1,4 +1,5 @@
 import re
+from dataclasses import dataclass
 
 from lxml import html
 
@@ -15,7 +16,17 @@ from .exceptions import (
 
 class SpecialAttr:
     """特殊属性"""
-    HAS_BATTERY = "1"
+    TRUE = "1"
+    FALSE = "2"
+    # 化妆品特殊属性
+    ## 非以下三种
+    NO_LIQUID_COSMETIC_FALSE = "0"
+    ## 非液体(膏体)化妆品
+    NO_LIQUID_COSMETIC = "1"
+    ## 液体化妆品
+    LIQUID_COSMETIC = "2"
+    ## 液体非化妆品
+    LIQUID_NO_COSMETIC = "3"
 
 
 class ProductSearchOperate():
@@ -55,22 +66,62 @@ class ProductSearchType():
     COMBO_SKU_TYPE = "combo_sku"
 
 
-class Product():
-    def __init__(self, sku):
-        self.sku = sku
-        self.cost = 0
-        self.weight = 0
-        self.stock = 0
-        self.unsent = 0
-        self.purchasing = 0
-        self.img_url = ''
-        self.chinese = ''
-        self.has_battery = False
-        self._ori_data = {}
+@dataclass
+class ProductForShippingFee():
+    """
+    :param sku:
+    :param cost:
+    :param weight:
+    :param is_battery: 带电
+    :param is_tort: 侵权
+    :param is_magnetic: 带磁
+    :param is_no_liquid_cosmetic: 非液体化妆品
+    :param is_liquid_cosmetic: 液体化妆品
+    :param is_liquid_no_cosmetic: 液体非化妆品
+    :param is_powder: 粉末
+    """
+    sku: str
+    cost: float
+    weight: float
+    is_battery: bool
+    is_tort: bool
+    is_magnetic: bool
+    is_no_liquid_cosmetic: bool
+    is_liquid_cosmetic: bool
+    is_liquid_no_cosmetic: bool
+    is_powder: bool
 
-    @property
-    def is_special(self):
-        return self.has_battery
+
+@dataclass
+class Product():
+    """
+    :param sku:
+    :param cost:
+    :param weight:
+    :param is_battery: 带电
+    :param is_tort: 侵权
+    :param is_magnetic: 带磁
+    :param is_no_liquid_cosmetic: 非液体化妆品
+    :param is_liquid_cosmetic: 液体化妆品
+    :param is_liquid_no_cosmetic: 液体非化妆品
+    :param is_powder: 粉末
+    """
+    sku: str
+    cost: float = 0
+    weight: float = 0
+    stock: int = 0
+    unsent: int = 0
+    purchasing: int = 0
+    self.img_url: str = ""
+    self.chinese: str = ""
+    is_battery: bool = False
+    is_tort: bool = False
+    is_magnetic: bool = False
+    is_no_liquid_cosmetic: bool = False
+    is_liquid_cosmetic: bool = False
+    is_liquid_no_cosmetic: bool = False
+    is_powder: bool = False
+    _ori_data: dict = {}
 
     @classmethod
     def from_api(cls, stock_data):
@@ -80,7 +131,13 @@ class Product():
         product.stock = int(stock_data['stockQuantity'])
         product.img_url = stock_data['stockPicture']
         product.chinese = stock_data['declareName']
-        product.has_battery = (stock_data['hasBattery'] == SpecialAttr.HAS_BATTERY)
+        product.is_battery = (stock_data['hasBattery'] == SpecialAttr.TRUE)
+        product.is_tort= (stock_data['hasBattery'] == SpecialAttr.TRUE)
+        product.is_magnetic = (stock_data['magnetic'] == SpecialAttr.TRUE)
+        prodoct.is_no_liquid_cosmetic = (stock_data["noLiquidCosmetic"] == SpecialAttr.NO_LIQUID_COSMETIC)
+        prodoct.is_liquid_cosmetic = (stock_data["noLiquidCosmetic"] == SpecialAttr.LIQUID_COSMETIC)
+        prodoct.is_liquid_no_cosmetic = (stock_data["noLiquidCosmetic"] == SpecialAttr.LIQUID_NO_COSMETIC)
+        prodoct.is_powder= (stock_data["powder"] == SpecialAttr.TRUE)
         product._ori_data = stock_data
         return product
 
@@ -90,12 +147,9 @@ class Product():
         product = Product(sku)
         product.cost = float(html_tree.xpath("./td[6]/text()")[0])
         product.weight = float(html_tree.xpath("./td[8]/text()")[0])
-        # 组合SKU默认为特货
-        product.has_battery = True
+        # TODO: 组合SKU默认为特货
+        product.is_battery = True
         return product
-
-    def __repr__(self):
-        return '<sku: %s, cost: %s, weight: %s>' % (self.sku, self.cost, self.weight)
 
 
 class ProductApi(MBApiBase):
