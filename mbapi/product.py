@@ -123,6 +123,21 @@ class Product():
     is_powder: bool = False
     _ori_data: dict = field(default_factory=dict)
 
+    @property
+    def product_for_shipping_fee(self):
+        return ProductForShippingFee(
+            sku=self.sku,
+            cost=self.cost,
+            weight=self.weight,
+            is_battery=self.is_battery,
+            is_tort=self.is_tort,
+            is_magnetic=self.is_magnetic,
+            is_no_liquid_cosmetic=self.is_no_liquid_cosmetic,
+            is_liquid_cosmetic=self.is_liquid_cosmetic,
+            is_liquid_no_cosmetic=self.is_liquid_no_cosmetic,
+            is_powder=self.is_powder,
+        )
+
     @classmethod
     def from_api(cls, stock_data):
         product = cls(stock_data["stockSku"])
@@ -134,10 +149,10 @@ class Product():
         product.is_battery = (stock_data['hasBattery'] == SpecialAttr.TRUE)
         product.is_tort= (stock_data['hasBattery'] == SpecialAttr.TRUE)
         product.is_magnetic = (stock_data['magnetic'] == SpecialAttr.TRUE)
-        prodoct.is_no_liquid_cosmetic = (stock_data["noLiquidCosmetic"] == SpecialAttr.NO_LIQUID_COSMETIC)
-        prodoct.is_liquid_cosmetic = (stock_data["noLiquidCosmetic"] == SpecialAttr.LIQUID_COSMETIC)
-        prodoct.is_liquid_no_cosmetic = (stock_data["noLiquidCosmetic"] == SpecialAttr.LIQUID_NO_COSMETIC)
-        prodoct.is_powder= (stock_data["powder"] == SpecialAttr.TRUE)
+        product.is_no_liquid_cosmetic = (stock_data["noLiquidCosmetic"] == SpecialAttr.NO_LIQUID_COSMETIC)
+        product.is_liquid_cosmetic = (stock_data["noLiquidCosmetic"] == SpecialAttr.LIQUID_COSMETIC)
+        product.is_liquid_no_cosmetic = (stock_data["noLiquidCosmetic"] == SpecialAttr.LIQUID_NO_COSMETIC)
+        product.is_powder= (stock_data["powder"] == SpecialAttr.TRUE)
         product._ori_data = stock_data
         return product
 
