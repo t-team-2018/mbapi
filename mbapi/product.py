@@ -1,5 +1,5 @@
 import re
-from dataclasses import dataclass
+from dataclasses import dataclass, Field
 
 from lxml import html
 
@@ -121,7 +121,7 @@ class Product():
     is_liquid_cosmetic: bool = False
     is_liquid_no_cosmetic: bool = False
     is_powder: bool = False
-    _ori_data: dict = {}
+    _ori_data: dict = Field(default_factory=dict)
 
     @classmethod
     def from_api(cls, stock_data):
